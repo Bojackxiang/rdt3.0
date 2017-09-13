@@ -1,25 +1,32 @@
 import socket
 import time
 import random
+import sys
 
-sender_ip = "localhost"
-sender_port = 3001
+# sender_ip = "localhost"
+sender_ip = sys.argv[1]
+# sender_port = 3001
+sender_port = sys.argv[2]
 sender_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sender_socket.bind((sender_ip, sender_port))
-
 receiver_ip = "localhost"
 receiver_port = 3000
 receiver_address = (receiver_ip, receiver_port)
-
-path = "/Users/keiichi/Desktop/9331official/9331txt2.txt"
+# path = "/Users/keiichi/Desktop/9331official/9331txt2.txt"
+path = sys.argv[4]
 file = open(path, "r")
 sender_log = open("Sender_log.txt", "w")
 
-mss = 12
-mws = 4
-time_out = 100
+# mss = 12
+mss = sys.argv[6]
+# mws = 4
+mws = sys.argv[5]
+# time_out = 100
+timeout = sys.argv[7]
 random_seed = 788
-pdrop = 0.5
+# pdrop = 0.5
+pdrop = sys.argv[8]
+seed = sys.argv[9]
 
 
 class handshake_data:
@@ -59,7 +66,7 @@ class data_transforming_segment:
         self.seq = seq
         self.seq_bit = seq_bit
         self.data = data
-        self.string = str(self.syn) + " " + str(self.fin) + " " + str(self.ack) + " " +str(self.ack_bit)+ " " + str(self.seq_bit) + " " + str(self.seq_bit) + " /" + self.data
+        self.string = str(self.syn) + " " + str(self.fin) + " " + str(self.ack) + " " + str(self.ack_bit) + " " + str(self.seq) + " " + str(self.seq_bit) + " /" + self.data
         self.sending_data = self.string.encode("utf-8")
         self.time = None
 
@@ -92,7 +99,6 @@ def create_window():
     global ack
     byte = file.read(mss)
     while byte:
-    # while len(byte) < mss:
         data_list.append(data_transforming_segment(data=str(byte), seq=sequence_number, ack=1))
         byte=file.read(mss)
         sequence_number += len(byte)
@@ -137,15 +143,24 @@ sequence_number = 1
 ack_number = 1
 data_list = []
 create_window()
-fast = 0
-for item in data_list:
-    print(item.sending_data.decode("utf-8"))
-    pld_send(item.sending_data)
-# while data_list:
-    # for item in data_list:
-while data_list:
-    result = receive()
-    for item in data_list:
-        if result == "fast":
-            pld_send(data_list[0])
+for start in range(len(data_list)):
+    end = start + mws
+    data_pkt1 = data_transforming_segment(seq=data_list[start:end][0].seq, data=data_list[start:end][0].data)
+    sender_socket.sendto(data_pkt1.sending_data, receiver_address)
+    data, addr = sender_socket.recvfrom(1024)
+    sender_log.writelines("snd \n")
+    sender_log.writelines("rcv \n")
+    # Consider About The Recving Ack
+    syn, fin, ack, ack_bit, seq, seq_bit, info = data_transforming_data_fetch(data)
+    print("seq: ", seq)         # Receiver : 我刚刚收到的是这个seq，我现在要ack这个
+    print("ack", ack)
+
+    # sending the right sequence
+    if start == len(data_list)-1:
+        break
+
+
+
+
+
 close()

@@ -1,10 +1,14 @@
 import socket
-receiver_ip = "localhost"
-receiver_port = 3000
+import sys
+# receiver_ip = "localhost"
+receiver_ip = sys.argv[1]
+# receiver_port = 3000
+receiver_port = sys.argv[2]
 receiver_address = (receiver_ip, receiver_port)
 receiver_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 receiver_socket.bind(receiver_address)
-file = open("file.txt", "w")
+file_name = sys.argv[3]
+file = open(file_name, "w")
 receiver_log = open("receiver_log.txt", "w")
 
 class handshake_data:
@@ -59,16 +63,44 @@ while True:
     sequence_number = 1
     data, addr = receiver_socket.recvfrom(1024)
     syn, fin, ack, ack_bit, seq, seq_bit, info = data_transforming_data_fetch(data)
+    # Receiver 每收一个就要开始判断
+    ack_number = seq + len(info)
+    x = data_transforming_segment(ack = ack_number, seq = seq)
+    receiver_socket.sendto(x.sending_data ,addr)
+    # Programing is Terminated
     if fin == 1:
         print("we want to close connection")
         receiver_socket.sendto(data_transforming_segment(ack_bit=1, ack=seq+1).sending_data,addr)
         receiver_socket.sendto(data_transforming_segment(fin=1, seq=201).sending_data, addr)
-        data, addr = receiver_socket.recvfrom(1024)             # seq = 202
+        data, addr = receiver_socket.recvfrom(1024)               # seq = 202
         break
-    if ack_number == seq:
-        ack_number = ack_number + len(info)
+    else:
+        file.writelines(info)
 
-    file.writelines(info)
+    # A received Sequence number is what I want
+    # if ack_number == seq:                                       # if the number is what i want
+    #     print("I received What I want")
+    #     ack_number = ack_number + len(info)                     # renew ack number
+    #     file.writelines(info)
+    #     print("I want following data")
+    #     i_want = data_transforming_segment(ack=ack_number, seq=sequence_number)
+    #     receiver_socket.sendto(i_want.sending_data, addr)
+    # if ack_number != seq:
+    #     print("this is not what i want, send original ack, and the right sequence that i want to you")
+    #     not_i_want = data_transforming_segment(ack=ack_number, seq=sequence_number)
+    #
+    #     while True:
+    #         data, address = receiver_socket.recvfrom(1024)
+    #         syn, fin, ack, ack_bit, seq, seq_bit, info = data_transforming_data_fetch(data)
+    #         if ack_number == seq:
+    #             print(info)
+    #             print("I want this, cool, and i just send you the next that i want")
+    #             next_i_want = data_transforming_segment(ack=ack_number+len(info), seq=sequence_number)
+    #             receiver_socket.sendto(i_want.sending_data, addr)
+    #             break
+    #         else:
+    #             continue
+
 
     # receiver_socket.sendto(data_transforming_segment(ack=ack_number, seq=sequence_number).sending_data, addr)
 
